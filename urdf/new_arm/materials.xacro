@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<robot name="new_arm" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+<!-- Gray tones for robot body (visible in Gazebo Fortress) -->
+<material name="silver">
+  <color rgba="0.700 0.700 0.700 1.000"/>
+</material>
+
+<material name="nylon_66_white">
+  <color rgba="0.750 0.750 0.750 1.000"/>
+</material>
+
+<material name="steel_satin">
+  <color rgba="0.600 0.600 0.620 1.000"/>
+</material>
+
+<material name="stainless_steel_satin">
+  <color rgba="0.650 0.650 0.670 1.000"/>
+</material>
+
+<material name="fabric_white">
+  <color rgba="0.800 0.800 0.800 1.000"/>
+</material>
+
+<material name="polystyrene">
+  <color rgba="0.700 0.700 0.720 1.000"/>
+</material>
+
+<material name="opaque212121">
+  <color rgba="0.500 0.500 0.500 1.000"/>
+</material>
+
+<material name="opaque202209238">
+  <color rgba="0.550 0.550 0.550 1.000"/>
+</material>
+
+<material name="surface_matte">
+  <color rgba="0.600 0.600 0.600 1.000"/>
+</material>
+
+</robot>

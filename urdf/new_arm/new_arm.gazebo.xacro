@@ -1,0 +1,100 @@
+<?xml version="1.0" ?>
+<!-- Gazebo Fortress properties for the 6-DOF robot arm.
+     gravity=false:      robot hangs inverted, joints can't fight gravity
+     self_collide=false:  prevents collision-mesh jamming between links -->
+<robot name="new_arm" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+<!-- Xacro macro to keep things DRY: every link gets no-gravity + no-self-collide -->
+<xacro:macro name="link_gazebo" params="link_name">
+  <gazebo reference="${link_name}">
+    <self_collide>false</self_collide>
+    <gravity>false</gravity>
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+</xacro:macro>
+
+<!-- Base & platform -->
+<xacro:link_gazebo link_name="base_link"/>
+<xacro:link_gazebo link_name="old_component__1__1"/>
+<xacro:link_gazebo link_name="old_component__2__1"/>
+<xacro:link_gazebo link_name="old_component__3__1"/>
+<xacro:link_gazebo link_name="old_component__4__1"/>
+<xacro:link_gazebo link_name="old_component__5__1"/>
+<xacro:link_gazebo link_name="old_component__6__1"/>
+<xacro:link_gazebo link_name="old_component__7__1"/>
+<xacro:link_gazebo link_name="old_component__8__1"/>
+<xacro:link_gazebo link_name="old_component__9__1"/>
+<xacro:link_gazebo link_name="old_component__10__1"/>
+<xacro:link_gazebo link_name="old_component__11__1"/>
+<xacro:link_gazebo link_name="old_component__12__1"/>
+<xacro:link_gazebo link_name="old_component__13__1"/>
+
+<!-- Servo mounts & arm links -->
+<xacro:link_gazebo link_name="old_component__14__1"/>
+<xacro:link_gazebo link_name="old_component__15__1"/>
+<xacro:link_gazebo link_name="old_component__16__1"/>
+<xacro:link_gazebo link_name="old_component__17__1"/>
+<xacro:link_gazebo link_name="old_component__18__1"/>
+<xacro:link_gazebo link_name="old_component__19__1"/>
+<xacro:link_gazebo link_name="old_component__20__1"/>
+<xacro:link_gazebo link_name="old_component__21__1"/>
+<xacro:link_gazebo link_name="old_component__22__1"/>
+<xacro:link_gazebo link_name="old_component__23__1"/>
+<xacro:link_gazebo link_name="old_component__24__1"/>
+<xacro:link_gazebo link_name="old_component__25__1"/>
+
+<!-- Pen / end-effector -->
+<xacro:link_gazebo link_name="giabut_1"/>
+<xacro:link_gazebo link_name="but_1"/>
+<xacro:link_gazebo link_name="bibut_1"/>
+
+<!-- Base bolts -->
+<xacro:link_gazebo link_name="old_component__29__1"/>
+<xacro:link_gazebo link_name="old_component__30__1"/>
+<xacro:link_gazebo link_name="old_component__31__1"/>
+<xacro:link_gazebo link_name="old_component__32__1"/>
+
+<!-- End-effector ArUco marker -->
+<gazebo reference="ee_aruco_marker">
+  <self_collide>false</self_collide>
+  <gravity>false</gravity>
+  <visual>
+    <material>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <pbr>
+        <metal>
+          <albedo_map>model://aruco_marker_4/materials/textures/marker_4.png</albedo_map>
+        </metal>
+      </pbr>
+    </material>
+  </visual>
+</gazebo>
+
+<!-- ========== CAMERA SENSOR ========== -->
+<gazebo reference="camera_link">
+  <sensor name="camera" type="camera">
+    <pose>0 0 0 0 0 0</pose>
+    <visualize>true</visualize>
+    <update_rate>30.0</update_rate>
+    <camera>
+      <horizontal_fov>1.3962634</horizontal_fov>
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.02</near>
+        <far>300</far>
+      </clip>
+    </camera>
+    <topic>camera/image_raw</topic>
+    <plugin filename="libignition-gazebo-sensors-system.so" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+  </sensor>
+</gazebo>
+
+</robot>

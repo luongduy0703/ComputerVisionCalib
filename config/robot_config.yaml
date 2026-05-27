@@ -1,0 +1,108 @@
+robot:
+  # All dimensions, offsets, and limits are in CENTIMETERS (cm)
+  # Derived straight-line kinematic lengths from UAV `new_arm.xacro`
+  dimensions:  # Units: cm
+    L0: 5.4
+    L1: 15.5
+    L2: 14.0
+    L3: 8.4
+  offsets: 
+    J3: 20.0  # Units: degrees
+    J4: 20.0  # Units: degrees
+    base_sensor: 3.0  # Units: cm
+    
+    # Vision calibration offsets - Units: cm (applied to IK input in cm)
+    vision_x: 0.0
+    vision_y: -6.0
+    vision_z: 1.0
+    
+    # Z manual offset for IK solver - Units: cm
+    z_manual_offset: 0.5
+    
+  limits:  # Units: cm
+    z_floor: -18.0
+    soft: 
+      base: [10, 170.0]
+      shoulder: [10.0, 170.0]
+      elbow: [10.0, 170.0]
+      wrist: [30.0, 155.0]
+  servos:
+    # Base angle: false = atan2(x,y) [0° along +Y, fits T_calib]; true = atan2(y,x) [0° along +X]
+    base_angle_atan2_yx: false
+    scale_base: 1.5
+    scale_arm: 1.0
+    deadband: 3.0
+    # Channel wiring to match wicom_roboarm_4dof_standalone.py:
+    #   CH0: base
+    #   CH1: shoulder (main)
+    #   CH2: shoulder mirror (mechanically paired with CH1)
+    #   CH3: elbow
+    #   CH4: wrist_roll (fixed)
+    #   CH5: wrist_pitch
+    #   CH6: pen (fixed)
+    # 4DOF IK outputs are mapped onto [0,1,3,5] (base, shoulder, elbow, wrist_pitch).
+    channels: [0, 1, 3, 5]
+    # Extra wiring options consumed by ServoController (fixed joints, mirror shoulder)
+    # fixed_channels[0]=CH4 (wrist_roll), fixed_channels[1]=CH6 (pen/DOF5)
+    fixed_channels: [4, 6]
+    fixed_degs: [100.0, 45.0]  # Increased CH6 from 30.0 to 45.0 to lift DOF 5 (pen) higher
+    off_channels: []
+    shoulder_mirror_enabled: true
+    shoulder_mirror_channel: 2
+    shoulder_mirror_angle_max: 180.0
+
+  # Low-level servo calibration (sign & offset around home position).
+  # These are applied on top of IK output before sending to the hardware.
+  servo_calibration:
+    home_deg: 90.0
+    # +1: normal, -1: invert around home (used to fix "reverse 180°" motion)
+    sign_base: 1.0
+    # Match standalone command: sign_shoulder:=-1.0, sign_elbow:=-1.0
+    sign_shoulder: -1.0
+    sign_elbow: -1.0
+    sign_wrist: 1.0
+    # Extra per-joint offsets in degrees (fine-tune neutral pose)
+    # Positive values lift/extend, negative values lower/retract
+    offset_base_deg: 0.0
+    offset_shoulder_deg: 30.0
+    offset_elbow_deg: -20.0  # Increased from -30.0 to lift DOF 3 (elbow) higher
+    offset_wrist_deg: 0.0
+
+# [PHẦN MỚI] Cấu hình điều khiển hành vi Robot
+control:
+  speed:
+    draw_cm_s: 1.0      # Tốc độ vẽ
+    air_cm_s: 1.5       # Tốc độ bay
+  
+  geometry:
+    lift_height_cm: -2.0      # Độ cao nhấc bút (cm)
+    fixed_tilt: -35.0         # Góc chúi cổ tay (degrees)
+    drawing_threshold_cm: 0.5 # Ngưỡng phát hiện đang vẽ (cm, abs(val_z) < threshold)
+    # Stroke coordinates: true = meters (vision/ShapeGenerator), false = cm (avoids 100x duration error)
+    stroke_input_meters: true
+  
+  safety:
+    min_dist_cm: 4.0     # Khoảng cách an toàn Base
+    ee_valid_range: 3.0
+  
+  # Debug / logging controls (for inspecting EE waypoint input quality)
+  debug:
+    log_waypoints: true          # Print concise EE waypoint trace to console
+    log_every_n_steps: 5         # Print once every N interpolation steps (reduce spam)
+    log_csv_extra_columns: true  # Log extra waypoint pipeline columns to pbvs_metrics.csv
+
+  # [NEW] Prediction and extrapolation settings
+  prediction:
+    enabled: true                    # Enable pose prediction
+    history_size: 10                 # Number of poses to store for velocity estimation
+    max_prediction_time_ms: 50.0     # Maximum time to predict ahead (ms)
+    extrapolation_timeout_ms: 200.0  # Use extrapolation if vision lost < this time (ms)
+    velocity_smoothing_alpha: 0.3    # EMA smoothing for velocity (0.0-1.0)
+    
+sensors:
+  ema_alpha: 0.7
+  min_valid_dist: 0.02
+  max_valid_dist: 1.50
+  i2c:
+    mux_address: 0x70
+    servo_address: 0x40

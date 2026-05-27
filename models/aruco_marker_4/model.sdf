@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <model name="aruco_marker_4">
+    <static>true</static>
+    <link name="marker_link">
+      <visual name="marker_visual">
+        <geometry>
+          <box>
+            <size>0.020 0.002 0.020</size>
+          </box>
+        </geometry>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+          <pbr>
+            <metal>
+              <albedo_map>model://aruco_marker_4/materials/textures/marker_4.png</albedo_map>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+      <!-- No collision - for visual detection only -->
+    </link>
+  </model>
+</sdf>

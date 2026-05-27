@@ -1,0 +1,41 @@
+# Digital Twin controller configuration
+# Uses open_loop_control so Gazebo accepts position commands
+# without physics-based feedback (essential for mirroring).
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+arm_controller:
+  ros__parameters:
+    joints:
+      - Revolute 20
+      - Revolute 22
+      - Revolute 23
+      - Revolute 26
+      - Revolute 28
+      - Revolute 30
+    
+    command_interfaces:
+      - position
+    
+    state_interfaces:
+      - position
+      - velocity
+    
+    open_loop_control: true
+    
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
+    
+    allow_partial_joints_goal: true
+    
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.0
