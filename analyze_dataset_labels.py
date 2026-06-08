@@ -3,7 +3,10 @@ import os
 import numpy as np
 
 # Find label files
-label_paths = glob.glob('/home/luongduy/AeroScript_Vision/datasets/pen_pose/ComputerVision.v1i.yolov8/train/labels/*.txt')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+label_paths = glob.glob(os.path.join(script_dir, 'datasets/pen_pose/ComputerVision.v1i.yolov8/train/labels/*.txt'))
+if not label_paths:
+    label_paths = glob.glob('datasets/pen_pose/ComputerVision.v1i.yolov8/train/labels/*.txt')
 print(f"Found {len(label_paths)} train labels.")
 
 swapped_count = 0

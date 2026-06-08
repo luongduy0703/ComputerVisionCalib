@@ -416,7 +416,11 @@ def main():
     args = parser.parse_args()
 
     print("⏳ Đang tải mô hình AI và Hệ thống PnP...")
-    model_path = '/home/luongduy/AeroScript_Vision/runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt'
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt')
+    if not os.path.exists(model_path):
+        model_path = 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt'
     model = YOLO(model_path)
 
     print(f"📸 Đang mở Camera index {args.cam}...")

@@ -15,7 +15,11 @@ def main():
     model = YOLO('yolov8n-pose.pt') 
     
     # Đường dẫn file data.yaml của bộ dữ liệu V4
-    data_yaml_path = '/home/luongduy/AeroScript_Vision/datasets/pen_pose/COVIP_training.v4i.yolov8/data.yaml'
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_yaml_path = os.path.join(script_dir, 'datasets/pen_pose/COVIP_training.v4i.yolov8/data.yaml')
+    if not os.path.exists(data_yaml_path):
+        data_yaml_path = 'datasets/pen_pose/COVIP_training.v4i.yolov8/data.yaml'
     
     # Tiến trình huấn luyện
     # Bạn có thể điều chỉnh epochs và batch tùy theo cấu hình máy

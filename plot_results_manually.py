@@ -4,7 +4,11 @@ import os
 
 def main():
     # Đường dẫn tới file csv kết quả vừa train xong
-    csv_path = '/home/luongduy/AeroScript_Vision/runs/pose/Aero_Models/pen_pose_v4-3/results.csv'
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v4-3/results.csv')
+    if not os.path.exists(csv_path):
+        csv_path = 'runs/pose/Aero_Models/pen_pose_v4-3/results.csv'
     output_dir = os.path.dirname(csv_path)
     
     if not os.path.exists(csv_path):

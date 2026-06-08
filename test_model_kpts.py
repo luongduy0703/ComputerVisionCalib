@@ -3,10 +3,16 @@ import numpy as np
 from ultralytics import YOLO
 import glob
 
-model_path = '/home/luongduy/AeroScript_Vision/runs/pose/Aero_Models/pen_pose_v1-9/weights/best.pt'
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v1-9/weights/best.pt')
+if not os.path.exists(model_path):
+    model_path = 'runs/pose/Aero_Models/pen_pose_v1-9/weights/best.pt'
 model = YOLO(model_path)
 
-val_images = glob.glob('/home/luongduy/AeroScript_Vision/datasets/pen_pose/merged_pen_pose/val/images/*.jpg')
+val_images = glob.glob(os.path.join(script_dir, 'datasets/pen_pose/merged_pen_pose/val/images/*.jpg'))
+if not val_images:
+    val_images = glob.glob('datasets/pen_pose/merged_pen_pose/val/images/*.jpg')
 print(f"Found {len(val_images)} validation images.")
 
 found = False

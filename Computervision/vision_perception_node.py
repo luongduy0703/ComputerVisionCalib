@@ -37,7 +37,12 @@ import math
 # ═══════════════════════════════════════════════════════════
 
 # --- YOLO ---
-MODEL_PATH = "/home/luongduy/AeroScript_Vision/runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt"
+import os
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_script_dir)
+MODEL_PATH = os.path.join(_project_root, "runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt")
+if not os.path.exists(MODEL_PATH):
+    MODEL_PATH = "runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt"
 YOLO_CONFIDENCE = 0.6
 
 # --- ArUco ---
