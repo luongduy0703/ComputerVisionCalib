@@ -111,9 +111,17 @@ class RobustPBVSNode(Node):
             1
         )
         
-        # ArUco Init - Fixed to match marker files (4x4_1000-*.svg)
-        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_1000)
-        self.params = aruco.DetectorParameters_create()
+        # ArUco Init - Fixed to match marker files (DICT_4X4_250)
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
+        if hasattr(aruco, 'DetectorParameters_create'):
+            self.params = aruco.DetectorParameters_create()
+        else:
+            self.params = aruco.DetectorParameters()
+
+        if hasattr(aruco, 'ArucoDetector'):
+            self.detector = aruco.ArucoDetector(self.aruco_dict, self.params)
+        else:
+            self.detector = None
         
         # [CẢI TIẾN] Profiler riêng cho Vision Node (ghi vào vision_metrics.csv)
         self.profiler = SystemProfiler("vision_metrics.csv")
@@ -187,7 +195,10 @@ class RobustPBVSNode(Node):
         
         # --- 1. Đo ArUco Detect ---
         self.profiler.start_timer("Vision_Detect_ms")
-        corners, ids, _ = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.params)
+        if self.detector is not None:
+            corners, ids, _ = self.detector.detectMarkers(gray)
+        else:
+            corners, ids, _ = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.params)
         t_detect = self.profiler.stop_timer("Vision_Detect_ms")
 
         found_board = False
@@ -311,6 +322,10 @@ class RobustPBVSNode(Node):
             self.monitor_pub.publish(out_msg)
         except: pass
 
+        if self.show_gui:
+            cv2.imshow("Robust PBVS Detector", cv_img)
+            cv2.waitKey(1)
+
 def main(args=None):
     rclpy.init(args=args)
     node = RobustPBVSNode()
@@ -324,6 +339,9 @@ def main(args=None):
         print("\n" + "="*40)
         print("🛑 Vision Node Stopped. Generating Report...")
         node.profiler.print_summary()
+        try:
+            cv2.destroyAllWindows()
+        except: pass
         node.destroy_node()
         # Only shutdown if not already shut down
         if rclpy.ok():

@@ -68,6 +68,8 @@ class SystemProfiler:
             "Target_Cam_X_cm", "Target_Cam_Y_cm", "Target_Cam_Z_cm",
             # Target transformed into base frame BEFORE compensation (cm)
             "Target_Base_Raw_X_cm", "Target_Base_Raw_Y_cm", "Target_Base_Raw_Z_cm",
+            # Base position from UNPREDICTED pose (cm) - pure raw system (no predictor, no filter)
+            "Base_NoPred_X_cm", "Base_NoPred_Y_cm", "Base_NoPred_Z_cm",
             # Applied position compensation (cm)
             "Comp_DX_cm", "Comp_DY_cm", "Comp_DZ_cm",
             # Target in base frame AFTER compensation (cm)

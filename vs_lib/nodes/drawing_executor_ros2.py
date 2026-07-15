@@ -52,8 +52,19 @@ class PBVSArtist(Node):
         super().__init__('pbvs_artist_node')
 
         # --- 1. LOAD CONFIG ---
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(current_dir, '..', 'config', 'robot_config.yaml')
+        config_path = None
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            share_dir = get_package_share_directory('visual_servoing')
+            config_path = os.path.join(share_dir, 'config', 'robot_config.yaml')
+        except Exception:
+            pass
+
+        if not config_path or not os.path.exists(config_path):
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(current_dir, '..', 'config', 'robot_config.yaml')
+        else:
+            current_dir = os.path.dirname(os.path.abspath(__file__)) # Define current_dir for other uses
         
         try:
             with open(config_path, 'r') as f:
@@ -64,12 +75,18 @@ class PBVSArtist(Node):
             sys.exit(1)
 
         ctrl_cfg = self.full_config.get('control', {})
-        self.DRAW_SPEED_CM_S = ctrl_cfg.get('speed', {}).get('draw_cm_s', 1.0)
-        self.AIR_SPEED_CM_S  = ctrl_cfg.get('speed', {}).get('air_cm_s', 1.5)
+        speed_cfg = ctrl_cfg.get('speed', {})
+        self.DRAW_SPEED_CM_S = float(speed_cfg.get('draw_cm_s', 1.0))
+        self.AIR_SPEED_CM_S  = float(speed_cfg.get('air_cm_s', 1.5))
+        self.APPROACH_SPEED_CM_S = float(speed_cfg.get('approach_cm_s', 0.5))
+        self.RETURN_HOME_SEC = float(max(0.5, speed_cfg.get('return_home_sec', 2.5)))
         self.LIFT_HEIGHT_CM  = ctrl_cfg.get('geometry', {}).get('lift_height_cm', -2.0)
         self.FIXED_TILT      = ctrl_cfg.get('geometry', {}).get('fixed_tilt', -35.0)
         self.DRAWING_THRESHOLD_CM = ctrl_cfg.get('geometry', {}).get('drawing_threshold_cm', 0.5)
         self.STROKE_INPUT_METERS = bool(ctrl_cfg.get('geometry', {}).get('stroke_input_meters', True))
+        # Safe drawing zone (board frame): default 7x7 cm centered at (0,0)
+        self.SAFE_ZONE_CM = float(ctrl_cfg.get('geometry', {}).get('safe_zone_cm', 7.0))
+        self.SAFE_ZONE_CLAMP_ENABLED = bool(ctrl_cfg.get('geometry', {}).get('safe_zone_clamp_enabled', True))
         self.MIN_SAFETY_DIST_CM = ctrl_cfg.get('safety', {}).get('min_dist_cm', 4.0)
         
         # [DEBUG] Waypoint logs (inspect EE waypoint input quality)
@@ -77,6 +94,8 @@ class PBVSArtist(Node):
         self.DEBUG_LOG_WAYPOINTS = bool(dbg_cfg.get('log_waypoints', False))
         self.DEBUG_LOG_EVERY_N_STEPS = int(max(1, dbg_cfg.get('log_every_n_steps', 5)))
         self.DEBUG_LOG_CSV_EXTRA = bool(dbg_cfg.get('log_csv_extra_columns', True))
+        # Optional: print joint angles actually sent to servos (after calibration & smoothing)
+        self.DEBUG_LOG_SERVO_ANGLES = bool(dbg_cfg.get('log_servo_angles', False))
 
         # [6-DOF compensation] Defaults are safe no-ops unless user config enables them
         balance_cfg = ctrl_cfg.get('autobalancing', {})
@@ -117,6 +136,10 @@ class PBVSArtist(Node):
         self.OFFSET_SHOULDER_DEG = float(servo_cal.get('offset_shoulder_deg', 30.0))
         self.OFFSET_ELBOW_DEG = float(servo_cal.get('offset_elbow_deg', -30.0))
         self.OFFSET_WRIST_DEG = float(servo_cal.get('offset_wrist_deg', 0.0))
+        # Optional hard clamp for wrist servo (DOF 5, 6th physical servo) in SERVO space.
+        # This guarantees the commanded wrist angle always stays within a safe band.
+        self.WRIST_SERVO_MIN_DEG = float(servo_cal.get('wrist_servo_min_deg', 80.0))
+        self.WRIST_SERVO_MAX_DEG = float(servo_cal.get('wrist_servo_max_deg', 100.0))
 
         # --- 2. INIT FILTERS ---
         # [NOTE: All filters operate in CM for consistency]
@@ -139,7 +162,13 @@ class PBVSArtist(Node):
         # Use wiring + calibration consistent with wicom_roboarm_4dof_standalone.py
         serv_cfg = robot_cfg.get('servos', {})
         fixed_channels = serv_cfg.get('fixed_channels', [])
-        fixed_degs = serv_cfg.get('fixed_degs', [])
+        fixed_degs_raw = list(serv_cfg.get('fixed_degs', [100.0, 45.0]))
+        # DOF 5 (pen, CH6): override with pen_deg if set for fine-tuning accuracy
+        pen_deg = serv_cfg.get('pen_deg', None)
+        if pen_deg is not None and len(fixed_degs_raw) >= 2:
+            fixed_degs = [float(fixed_degs_raw[0]), float(pen_deg)]
+        else:
+            fixed_degs = [float(d) for d in fixed_degs_raw]
         off_channels = serv_cfg.get('off_channels', [])
         shoulder_mirror_enabled = bool(serv_cfg.get('shoulder_mirror_enabled', False))
         shoulder_mirror_channel = serv_cfg.get('shoulder_mirror_channel', None)
@@ -155,7 +184,17 @@ class PBVSArtist(Node):
         )
 
         # --- 4. LOAD CALIBRATION MATRIX ---
-        calib_path = os.path.join(current_dir, '..', 'config', 'T_cam_to_base_THEORETICAL.npy')
+        calib_path = None
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            share_dir = get_package_share_directory('visual_servoing')
+            calib_path = os.path.join(share_dir, 'config', 'T_cam_to_base_THEORETICAL.npy')
+        except Exception:
+            pass
+
+        if not calib_path or not os.path.exists(calib_path):
+            calib_path = os.path.join(current_dir, '..', 'config', 'T_cam_to_base_THEORETICAL.npy')
+
         try:
             self.T_calib = np.load(calib_path)
             self.T_calib_inv = np.linalg.inv(self.T_calib)  # base → camera for prediction
@@ -184,9 +223,31 @@ class PBVSArtist(Node):
         self.next_wake_time = 0.0
 
         # --- 9. LOAD DRAWING DATA ---
+        self.json_meta = {}
+        self.JSON_POINTS_NORMALIZED = False
+        self.JSON_SAFE_ZONE_M = None
         if is_file:
             with open(input_data, 'r') as f:
-                self.strokes = json.load(f)
+                data = json.load(f)
+            # Support both {"meta":..., "strokes":[...]} and raw list of strokes
+            if isinstance(data, dict) and "strokes" in data:
+                self.json_meta = data.get("meta", {}) if isinstance(data.get("meta", {}), dict) else {}
+                # If JSON uses normalized coords in [-0.5,0.5], scale using safe_zone from meta if present.
+                # Example: safe_zone_mm=70 => scale factor 0.070m so [-0.5,0.5] => [-0.035,0.035] m.
+                board_cfg = self.json_meta.get("board_config", {}) if isinstance(self.json_meta.get("board_config", {}), dict) else {}
+                safe_zone_mm = board_cfg.get("safe_zone_mm", None)
+                if safe_zone_mm is not None:
+                    try:
+                        self.JSON_SAFE_ZONE_M = float(safe_zone_mm) / 1000.0
+                        self.JSON_POINTS_NORMALIZED = True
+                    except Exception:
+                        self.JSON_SAFE_ZONE_M = None
+                        self.JSON_POINTS_NORMALIZED = False
+                self.strokes = data["strokes"]
+            elif isinstance(data, list):
+                self.strokes = data
+            else:
+                self.strokes = []
         else:
             self.strokes = input_data
 
@@ -603,6 +664,8 @@ class PBVSArtist(Node):
             val_x = val_reach = val_z = 0.0
             raw_x = raw_y = raw_z = 0.0
             base_raw_x = base_raw_y = base_raw_z = 0.0
+            # Base pose from UNPREDICTED vision pose (raw system, no predictor)
+            base_nopred_x = base_nopred_y = base_nopred_z = 0.0
             comp_dx = comp_dy = comp_dz = 0.0
             compensated_tilt = self.FIXED_TILT
             p_cam_cm = np.array([0.0, 0.0, 0.0], dtype=np.float64)
@@ -614,6 +677,31 @@ class PBVSArtist(Node):
             if 'active_pose' not in locals():
                 active_pose = self.latest_board_pose
             
+            # --- Compute base-frame pose from UNPREDICTED vision (latest_board_pose) for logging State 1 ---
+            # This represents the "raw system": no predictor, no temporal filter.
+            if self.latest_board_pose is not None:
+                pose_nopred = self.latest_board_pose
+                tx0, ty0, tz0 = pose_nopred['tx'], pose_nopred['ty'], pose_nopred['tz']
+                q0 = [pose_nopred['qx'], pose_nopred['qy'],
+                      pose_nopred['qz'], pose_nopred['qw']]
+
+                rmat0 = self.quaternion_to_matrix(q0)
+                T_vision_nopred = np.eye(4)
+                T_vision_nopred[:3, :3] = rmat0
+                T_vision_nopred[:3, 3] = [tx0, ty0, tz0]
+
+                p_cam_nopred = T_vision_nopred @ current_target_pt
+                p_base_nopred = self.T_calib @ p_cam_nopred
+                p_base_nopred_cm = np.array(
+                    [p_base_nopred[0] * 100.0, p_base_nopred[1] * 100.0, p_base_nopred[2] * 100.0],
+                    dtype=np.float64,
+                )
+                base_nopred_x, base_nopred_y, base_nopred_z = (
+                    float(p_base_nopred_cm[0]),
+                    float(p_base_nopred_cm[1]),
+                    float(p_base_nopred_cm[2]),
+                )
+
             if active_pose:
                 pose_predicted_flag = bool(active_pose.get('predicted', False))
                 # [BENCHMARK] Tính Phase Delay (Delay từ lúc chụp ảnh đến lúc xử lý xong tại đây)
@@ -684,10 +772,36 @@ class PBVSArtist(Node):
                         self._apply_output_adjust(target_angles[2], self.SIGN_ELBOW, self.OFFSET_ELBOW_DEG),
                         self._apply_output_adjust(target_angles[3], self.SIGN_WRIST, self.OFFSET_WRIST_DEG),
                     ]
+                    # [SAFETY] Clamp wrist servo (DOF 5) into a safe tilt band in SERVO space.
+                    # This prevents the algorithm from driving the wrist past 180° and losing usable workspace.
+                    if self.WRIST_SERVO_MIN_DEG < self.WRIST_SERVO_MAX_DEG:
+                        wrist_before = calibrated[3]
+                        calibrated[3] = float(
+                            max(self.WRIST_SERVO_MIN_DEG,
+                                min(self.WRIST_SERVO_MAX_DEG, calibrated[3]))
+                        )
+                        if self.DEBUG_LOG_SERVO_ANGLES and abs(calibrated[3] - wrist_before) > 1e-3:
+                            print(
+                                f"⚠️ [WRIST_CLAMP] servo_deg={wrist_before:6.1f} "
+                                f"-> {calibrated[3]:6.1f} "
+                                f"(limit=[{self.WRIST_SERVO_MIN_DEG:.1f},{self.WRIST_SERVO_MAX_DEG:.1f}])"
+                            )
                     self.profiler.start_timer("Servo_Write_ms")
                     smoothed = [self.joint_smoothers[i].update(calibrated[i]) for i in range(4)]
                     self.servos.apply_angles(smoothed)
                     t_servo = self.profiler.stop_timer("Servo_Write_ms")
+
+                    # Optional console log of servo angles for debugging
+                    if self.DEBUG_LOG_SERVO_ANGLES and (step % self.DEBUG_LOG_EVERY_N_STEPS == 0 or step == steps - 1):
+                        print(
+                            "[SERVO] "
+                            f"raw_deg=({target_angles[0]:6.1f},{target_angles[1]:6.1f},"
+                            f"{target_angles[2]:6.1f},{target_angles[3]:6.1f}) "
+                            f"calib_deg=({calibrated[0]:6.1f},{calibrated[1]:6.1f},"
+                            f"{calibrated[2]:6.1f},{calibrated[3]:6.1f}) "
+                            f"smoothed_deg=({smoothed[0]:6.1f},{smoothed[1]:6.1f},"
+                            f"{smoothed[2]:6.1f},{smoothed[3]:6.1f})"
+                        )
                 else:
                     t_servo = 0.0
                     # Helpful diagnostic when the arm doesn't move (often due to unreachable target)
@@ -710,6 +824,7 @@ class PBVSArtist(Node):
                     Tracking_Error_3D_cm=error_3d,
                     Command_X=val_x, Command_Y=val_reach, Command_Z=val_z,
                     Raw_Vision_X=base_raw_x, Raw_Vision_Y=base_raw_y, Raw_Vision_Z=base_raw_z,
+                    Base_NoPred_X_cm=base_nopred_x, Base_NoPred_Y_cm=base_nopred_y, Base_NoPred_Z_cm=base_nopred_z,
                     Target_X=current_target_pt[0]*100, 
                     Target_Y=current_target_pt[1]*100, 
                     Target_Z=current_target_pt[2]*100,
@@ -773,10 +888,47 @@ class PBVSArtist(Node):
         try:
             pt = np.array(raw_pt, dtype=np.float64)
             if pt.ndim != 1: return None
-            if pt.shape[0] == 3: pt = np.append(pt, 1.0) 
+            if pt.shape[0] == 2: pt = np.append(pt, 0.0)  # [x,y] -> [x,y,0] drawing plane
+            if pt.shape[0] == 3: pt = np.append(pt, 1.0)
             if pt.shape[0] != 4: return None
+
+            # JSON default: normalized coordinates in [-0.5, 0.5].
+            # Convert to meters using safe zone (from JSON meta if present; else from config safe_zone_cm).
+            if self.JSON_POINTS_NORMALIZED:
+                zone_m = float(self.JSON_SAFE_ZONE_M) if self.JSON_SAFE_ZONE_M is not None else (self.SAFE_ZONE_CM / 100.0)
+                pt[0] *= zone_m
+                pt[1] *= zone_m
+
+            # Hard clamp to safe zone (board frame), to prevent runaway even if input is wrong.
+            if self.SAFE_ZONE_CLAMP_ENABLED:
+                half_m = (self.SAFE_ZONE_CM / 100.0) * 0.5
+                x0, y0 = float(pt[0]), float(pt[1])
+                pt[0] = float(np.clip(pt[0], -half_m, +half_m))
+                pt[1] = float(np.clip(pt[1], -half_m, +half_m))
+                if (abs(pt[0] - x0) > 1e-9) or (abs(pt[1] - y0) > 1e-9):
+                    # Rate-limited print is overkill here; clamp events are important safety signals.
+                    print(
+                        f"⚠️ [SAFE_ZONE_CLAMP] board_m=({x0:+.4f},{y0:+.4f}) -> ({pt[0]:+.4f},{pt[1]:+.4f}) "
+                        f"(safe_zone_cm={self.SAFE_ZONE_CM:.1f})"
+                    )
+
             return pt
         except: return None
+
+    def _ramp_to_home(self):
+        """Ramp joint angles from current (joint_smoothers) to HOME_POSE over RETURN_HOME_SEC."""
+        n_steps = max(2, int(self.RETURN_HOME_SEC / self.dt_period))
+        for step in range(1, n_steps + 1):
+            t = step / n_steps
+            angles = [
+                self.joint_smoothers[i].value * (1.0 - t) + self.HOME_POSE[i] * t
+                for i in range(4)
+            ]
+            self.servos.apply_angles(angles)
+            # Keep smoothers in sync for next run
+            for i in range(4):
+                self.joint_smoothers[i].value = angles[i]
+            time.sleep(self.dt_period)
 
     def run(self):
         print("🚀 Executor Started. Moving to HOME...")
@@ -794,26 +946,34 @@ class PBVSArtist(Node):
 
         for stroke_idx, stroke in enumerate(self.strokes):
             print(f"   🔹 Stroke {stroke_idx+1}/{len(self.strokes)}")
-            
+            # Support stroke as dict with "points" (JSON file) or list of points (ShapeGenerator)
+            if isinstance(stroke, dict) and "points" in stroke:
+                raw_points = stroke["points"]
+            elif isinstance(stroke, (list, tuple)):
+                raw_points = stroke
+            else:
+                raw_points = []
             valid_points = []
-            for raw in stroke:
+            for raw in raw_points:
                 p = self.parse_point(raw)
                 if p is not None: valid_points.append(p)
-            
             if len(valid_points) < 2: continue
 
             start_pt = valid_points[0]
+            # Use slower approach speed for first stroke; use air/draw for rest
+            approach_speed = self.APPROACH_SPEED_CM_S if stroke_idx == 0 else self.AIR_SPEED_CM_S
+            draw_down_speed = self.APPROACH_SPEED_CM_S if stroke_idx == 0 else self.DRAW_SPEED_CM_S
             
             # --- PHASE 1: BAY ĐẾN ĐIỂM ĐẦU ---
             lift_start = current_board_pos.copy()
             lift_start[2] = -abs(self.LIFT_HEIGHT_CM/100.0)
-            self.execute_segment(current_board_pos, lift_start, self.AIR_SPEED_CM_S)
+            self.execute_segment(current_board_pos, lift_start, approach_speed)
             
             lift_end = start_pt.copy()
             lift_end[2] = -abs(self.LIFT_HEIGHT_CM/100.0)
-            self.execute_segment(lift_start, lift_end, self.AIR_SPEED_CM_S)
+            self.execute_segment(lift_start, lift_end, approach_speed)
             
-            self.execute_segment(lift_end, start_pt, self.DRAW_SPEED_CM_S)
+            self.execute_segment(lift_end, start_pt, draw_down_speed)
             current_board_pos = start_pt
 
             # --- PHASE 2: VẼ NÉT ---
@@ -828,8 +988,8 @@ class PBVSArtist(Node):
             self.execute_segment(current_board_pos, lift_finish, self.DRAW_SPEED_CM_S)
             current_board_pos = lift_finish
 
-        print("✅ Task Completed!")
-        self.servos.apply_angles(self.HOME_POSE)
+        print("✅ Task Completed! Returning to HOME slowly...")
+        self._ramp_to_home()
         # [BENCHMARK] In báo cáo tóm tắt
         self.profiler.print_summary()
 
@@ -854,8 +1014,19 @@ def main(args=None):
     input_data = None
     is_file = False
     if args_parsed.mode == 'json':
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        input_data = os.path.join(current_dir, '..', 'drone_task.json')
+        json_path = None
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            share_dir = get_package_share_directory('visual_servoing')
+            json_path = os.path.join(share_dir, 'drone_task.json')
+        except Exception:
+            pass
+
+        if not json_path or not os.path.exists(json_path):
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            input_data = os.path.join(current_dir, '..', 'drone_task.json')
+        else:
+            input_data = json_path
         is_file = True
     elif args_parsed.mode == 'tri':    input_data = gen.polygon(3, args_parsed.scale)
     elif args_parsed.mode == 'square': input_data = gen.rectangle(args_parsed.scale, args_parsed.scale)

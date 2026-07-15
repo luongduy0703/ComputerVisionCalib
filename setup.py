@@ -53,7 +53,9 @@ def get_urdf_files():
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']) + ['drawing', 'rl', 'utils', 'agents', 'digital_twin', 'controllers', 'Computervision'],
+    packages=find_packages(exclude=['test']) + [
+        'drawing', 'rl', 'utils', 'agents', 'digital_twin', 'controllers', 'Computervision'
+    ],
     package_dir={
         'drawing': 'scripts/drawing',
         'rl': 'scripts/rl',
@@ -87,6 +89,7 @@ setup(
             'drawing_executor = vs_lib.nodes.drawing_executor_ros2:main',
             'shape_generator = vs_lib.nodes.shape_generator:main',
             'vision_node = vs_lib.nodes.vision_node_ros2:main',
+            'center_tracking = vs_lib.nodes.center_tracking_executor_ros2:main',
             'gazebo_drawing_visualizer = drawing.gazebo_visualizer:main',
             'fk_display = rl.fk_display:main',
             # Digital Twin

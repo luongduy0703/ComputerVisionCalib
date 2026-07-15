@@ -10,6 +10,7 @@ Tác giả : AeroScript Team
 Ngày    : 2026-05-05
 """
 
+import os
 import sys
 import cv2
 import numpy as np
@@ -19,8 +20,10 @@ from ultralytics import YOLO
 #  CẤU HÌNH
 # ═══════════════════════════════════════════════════════════
 
-# --- Đường dẫn ---
-MODEL_PATH = "/home/luongduy/AeroScript_Vision/runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt"
+# --- Đường dẫn động ---
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_current_dir)
+MODEL_PATH = os.path.join(_project_root, "runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt")
 
 # --- YOLO ---
 YOLO_CONFIDENCE = 0.6
@@ -370,6 +373,13 @@ def main():
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+
+    # Cấu hình phơi sáng tự động và các thông số chống tối ảnh
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)     # 3 = Aperture Priority (Auto)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # Thử lại với giá trị float cho một số backend OpenCV khác
+    cap.set(cv2.CAP_PROP_AUTO_WB, 1)           # Bật Auto White Balance (Cân bằng trắng tự động)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 128)      # Khôi phục độ sáng về mức mặc định (tránh bị chỉnh tay tối trước đó)
+    cap.set(cv2.CAP_PROP_GAIN, -1)             # Thiết lập gain tự động/mặc định
 
     print(f"[INFO] Warm-up camera ({WARMUP_FRAMES} frames)...")
     for _ in range(WARMUP_FRAMES):

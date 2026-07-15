@@ -16,6 +16,13 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
+    # Cấu hình phơi sáng tự động và các thông số chống tối ảnh
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)     # 3 = Aperture Priority (Auto)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # Thử lại với giá trị float cho một số backend OpenCV khác
+    cap.set(cv2.CAP_PROP_AUTO_WB, 1)           # Bật Auto White Balance (Cân bằng trắng tự động)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 128)      # Khôi phục độ sáng về mức mặc định (tránh bị chỉnh tay tối trước đó)
+    cap.set(cv2.CAP_PROP_GAIN, -1)             # Thiết lập gain tự động/mặc định
+
     print("⏳ Đang chụp thử 10 frames để khởi động camera...")
     frame = None
     for i in range(10):

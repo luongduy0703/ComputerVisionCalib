@@ -4,7 +4,7 @@
   <name>visual_servoing</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="@gmail.com">user</maintainer>
+  <maintainer email="user@gmail.com">user</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>

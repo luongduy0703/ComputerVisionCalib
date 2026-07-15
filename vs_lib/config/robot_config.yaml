@@ -41,11 +41,11 @@ robot:
     #   CH5: wrist_pitch
     #   CH6: pen (fixed)
     # 4DOF IK outputs are mapped onto [0,1,3,5] (base, shoulder, elbow, wrist_pitch).
-    channels: [0, 1, 2, 3, 4, 5]
+    channels: [0, 1, 3, 5]
     # Extra wiring options consumed by ServoController (fixed joints, mirror shoulder)
     # fixed_channels[0]=CH4 (wrist_roll), fixed_channels[1]=CH6 (pen/DOF5)
-    fixed_channels: []
-    fixed_degs: []  # Increased CH6 from 30.0 to 45.0 to lift DOF 5 (pen) higher
+    fixed_channels: [4, 6]
+    fixed_degs: [100.0, 45.0]  # Increased CH6 from 30.0 to 45.0 to lift DOF 5 (pen) higher
     off_channels: []
     shoulder_mirror_enabled: true
     shoulder_mirror_channel: 2

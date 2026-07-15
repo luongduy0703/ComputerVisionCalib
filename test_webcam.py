@@ -396,7 +396,8 @@ PEN_3D_POINTS = np.array([
 # ==========================================
 # 5. CẤU HÌNH CAMERA (Giả định cho Webcam Laptop 640x480)
 # ==========================================
-fx, fy = 600.0, 600.0
+# fx, fy = 600.0, 600.0
+fx, fy = 770.0, 770.0
 cx, cy = 320.0, 240.0
 camera_matrix = np.array([
     [fx, 0, cx],
@@ -413,14 +414,33 @@ def main():
                         help="Khoảng cách giữa các lần chạy AI (giây). Mặc định: 0.0 (liên tục)")
     parser.add_argument("--raw", action="store_true",
                         help="Tắt bộ lọc Kalman, xuất kết quả thô từ solvePnP")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Đường dẫn tới model (.pt, .tflite, hoặc thư mục NCNN)")
+    parser.add_argument("--conf", type=float, default=0.55,
+                        help="Ngưỡng độ tin cậy YOLO (confidence threshold). Mặc định: 0.55")
     args = parser.parse_args()
 
     print("⏳ Đang tải mô hình AI và Hệ thống PnP...")
     import os
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt')
-    if not os.path.exists(model_path):
-        model_path = 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt'
+    
+    if args.model:
+        model_path = args.model
+        print(f"Loading user-specified model: {model_path}")
+    else:
+        candidates = [
+            (os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best_ncnn_model'), 'NCNN'),
+            (os.path.join(script_dir, 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt'), 'PyTorch (Raw)')
+        ]
+        model_path = None
+        for path, model_type in candidates:
+            if os.path.exists(path):
+                print(f"Detected and loading {model_type} model from: {path}")
+                model_path = path
+                break
+        if model_path is None:
+            model_path = 'runs/pose/Aero_Models/pen_pose_v4-3/weights/best.pt'
+            
     model = YOLO(model_path)
 
     print(f"📸 Đang mở Camera index {args.cam}...")
@@ -435,6 +455,13 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+
+    # Cấu hình phơi sáng tự động và các thông số chống tối ảnh
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)     # 3 = Aperture Priority (Auto)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # Thử lại với giá trị float cho một số backend OpenCV khác
+    cap.set(cv2.CAP_PROP_AUTO_WB, 1)           # Bật Auto White Balance (Cân bằng trắng tự động)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 128)      # Khôi phục độ sáng về mức mặc định (tránh bị chỉnh tay tối trước đó)
+    cap.set(cv2.CAP_PROP_GAIN, -1)             # Thiết lập gain tự động/mặc định
 
     # Khởi tạo bộ lọc Kalman và dashboard
     kf_2d = KeypointKalmanFilter(process_noise=1e-2, measurement_noise=2.0)
@@ -477,14 +504,16 @@ def main():
             last_inference_time = now
             detected_this_frame = False
 
-            results = model(frame, conf=0.55, imgsz=320, verbose=False)
+            results = model(frame, conf=args.conf, imgsz=320, verbose=False)
 
             if len(results[0]) > 0 and results[0].keypoints is not None:
                 kpts = results[0].keypoints.xy[0].cpu().numpy()
                 confs = results[0].keypoints.conf[0].cpu().numpy()
 
+                # Ngưỡng keypoint confidence tự động co giãn theo ngưỡng YOLO chính
+                kpt_conf_thresh = max(0.15, args.conf - 0.1)
                 valid = (len(kpts) == 4 and
-                         np.all(confs > 0.45) and
+                         np.all(confs > kpt_conf_thresh) and
                          not np.any(kpts == 0.0))
 
                 if valid:

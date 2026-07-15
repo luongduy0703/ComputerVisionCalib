@@ -1,5 +1,20 @@
 import time
-from adafruit_servokit import ServoKit
+
+try:
+    from adafruit_servokit import ServoKit
+except ImportError:
+    class MockServo:
+        def __init__(self):
+            self.angle = 90.0
+        def set_pulse_width_range(self, min_pw, max_pw):
+            pass
+
+    class MockServoKit:
+        def __init__(self, *args, **kwargs):
+            self.servo = [MockServo() for _ in range(16)]
+
+    ServoKit = MockServoKit
+    print("⚠️ Cảnh báo: Không tìm thấy thư viện 'adafruit_servokit'. Hệ thống sẽ tự động chuyển sang chế độ Mô Phỏng (Mock Servo).")
 
 class ServoController:
     """

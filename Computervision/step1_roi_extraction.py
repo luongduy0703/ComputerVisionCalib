@@ -8,6 +8,7 @@ Tác giả : AeroScript Team
 Ngày    : 2026-05-04
 """
 
+import os
 import sys
 import cv2
 import numpy as np
@@ -17,7 +18,9 @@ from step2_contour_detection import process_roi_and_find_contour
 # ──────────────────────────────────────────────
 # CẤU HÌNH
 # ──────────────────────────────────────────────
-MODEL_PATH     = "/home/luongduy/AeroScript_Vision/runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt"  # Mô hình painting_pen đã train
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_current_dir)
+MODEL_PATH     = os.path.join(_project_root, "runs/detect/runs/detect/aeroscript_pen_model/weights/best.pt")  # Mô hình painting_pen đã train
 CONFIDENCE     = 0.6                # Ngưỡng tin cậy tối thiểu
 PADDING        = 20                 # Mở rộng lề (pixel) quanh bounding box
 CAMERA_INDEX   = 0                  # Webcam mặc định
@@ -62,6 +65,13 @@ def main() -> None:
     # Đặt độ phân giải rõ ràng để tránh camera trả frame rỗng
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    # Cấu hình phơi sáng tự động và các thông số chống tối ảnh
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)     # 3 = Aperture Priority (Auto)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # Thử lại với giá trị float cho một số backend OpenCV khác
+    cap.set(cv2.CAP_PROP_AUTO_WB, 1)           # Bật Auto White Balance (Cân bằng trắng tự động)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 128)      # Khôi phục độ sáng về mức mặc định (tránh bị chỉnh tay tối trước đó)
+    cap.set(cv2.CAP_PROP_GAIN, -1)             # Thiết lập gain tự động/mặc định
 
     # ── WARM-UP: Bỏ qua vài frame đầu vì webcam cần thời gian khởi động ──
     # Nhiều webcam USB trả về frame đen trong ~0.5-1 giây đầu tiên.

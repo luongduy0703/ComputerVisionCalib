@@ -70,8 +70,8 @@ class VisionArucoDetector(Node):
         self.bridge = CvBridge()
         
         # ArUco detector setup - handle different OpenCV versions
-        # Using DICT_4X4_1000 to match user's marker files (4x4_1000-*.svg)
-        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_1000)
+        # Using DICT_4X4_250 to match user's marker files
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
         # OpenCV 4.7+ uses DetectorParameters(), older uses DetectorParameters_create()
         try:
             self.aruco_params = aruco.DetectorParameters()

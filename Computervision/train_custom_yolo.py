@@ -37,7 +37,9 @@ import yaml
 # ============================================================================
 
 # Đường dẫn tuyệt đối tới thư mục gốc chứa dataset (chứa images/ và labels/)
-DATASET_ROOT_DIR = "/home/luongduy/AeroScript_Vision/data"
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(_current_dir)
+DATASET_ROOT_DIR = os.path.join(_project_root, "data")
 
 # Tỷ lệ chia train/val (0.8 = 80% train, 20% val)
 TRAIN_RATIO = 0.8
