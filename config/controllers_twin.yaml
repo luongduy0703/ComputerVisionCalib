@@ -15,12 +15,12 @@ controller_manager:
 arm_controller:
   ros__parameters:
     joints:
-      - Revolute 20
-      - Revolute 22
-      - Revolute 23
-      - Revolute 26
-      - Revolute 28
-      - Revolute 30
+      - Revolute 20  #1
+      - Revolute 22  #2
+      - Revolute 23  #3
+      - Revolute 26  #4
+      - Revolute 28  #5
+      - Revolute 30  #6
     
     command_interfaces:
       - position
